@@ -250,5 +250,3 @@ MIT License.
 For questions or collaboration:
 **Harsh Bhardwaj**
 GitHub: *Harsh81181*
-
-Just tell me **“Generate day1.md”** or **“Generate architecture diagram image”**.
