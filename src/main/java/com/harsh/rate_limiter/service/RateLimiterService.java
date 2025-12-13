@@ -6,11 +6,13 @@ import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import com.harsh.rate_limiter.dto.RateLimiterKeyBuilder;
 import com.harsh.rate_limiter.dto.RateLimiterResultDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RateLimiterService {
@@ -26,8 +28,8 @@ public class RateLimiterService {
     */
     public Mono<RateLimiterResultDto> isAllowed(String key) {
 
+    	String redisKey = RateLimiterKeyBuilder.buildKey(key);
         long now = System.currentTimeMillis();
-        String redisKey = "rate:" + key;
         double windowStart = now - WINDOW_SIZE_MS;
 
         // 1. Remove old requests (outside sliding window)
@@ -42,11 +44,19 @@ public class RateLimiterService {
                 .flatMap(currentRequestCount -> {
                     // BLOCK case
                     if (currentRequestCount >= MAX_REQUESTS) {
+                    	log.warn(
+                                "Rate limit exceeded | key={} | count={} | limit={}",
+                                key, currentRequestCount, MAX_REQUESTS
+                            );
                         return Mono.just(
                                 new RateLimiterResultDto(false, 0)
                         );
                     }
                     // ALLOW case
+                    log.info(
+                            "Rate limit allowed | key={} | count={} | limit={}",
+                            key, currentRequestCount, MAX_REQUESTS
+                        );
                     return allowRequest(redisKey, now, currentRequestCount);
                 });
     }
