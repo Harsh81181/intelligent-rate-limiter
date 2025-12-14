@@ -6,7 +6,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.harsh.rate_limiter.service.RateLimiterService;
+import com.harsh.rate_limiter.service.RateLimiterLuaService;
+//import com.harsh.rate_limiter.service.RateLimiterService;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -16,7 +17,8 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api")
 public class RateLimitTestController {
 
-    private final RateLimiterService rateLimiterService;
+    //private final RateLimiterService rateLimiterService;
+    private final RateLimiterLuaService rateLimiterService;
 
     @GetMapping("/test")
     public Mono<ResponseEntity<String>> test(

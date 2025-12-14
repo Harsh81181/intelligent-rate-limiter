@@ -21,7 +21,7 @@ public class RateLimiterService {
 
     private static final long WINDOW_SIZE_MS = 60_000;
     private static final long MAX_REQUESTS = 5;
-   /**
+   /** Sliding window (non-atomic)
     * @author Harsh
     * @param key
     * @return Mono
