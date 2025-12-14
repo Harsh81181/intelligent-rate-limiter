@@ -159,7 +159,6 @@ This moves the project from **implementation-focused** to **engineering-focused*
 * Config-driven limits
 * Multi-instance behavior
 * Architecture diagram
-* Interview-ready explanations
 
 ---
 
