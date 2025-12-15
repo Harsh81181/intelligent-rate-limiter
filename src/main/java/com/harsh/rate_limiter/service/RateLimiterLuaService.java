@@ -1,11 +1,13 @@
 package com.harsh.rate_limiter.service;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
+import com.harsh.rate_limiter.config.RateLimiterProperties;
 import com.harsh.rate_limiter.dto.RateLimiterKeyBuilder;
 import com.harsh.rate_limiter.dto.RateLimiterResultDto;
 
@@ -27,9 +29,7 @@ public class RateLimiterLuaService {
 
 	private final ReactiveStringRedisTemplate redisTemplate;
     private final RedisScript<List> rateLimiterScript;
-	
-	private static final long WINDOW_SIZE_MS=10_000;
-	private static final int MAX_REQUESTS=5;
+	private final RateLimiterProperties properties;
 	
 	@PostConstruct
 	void initMetrics() {
@@ -52,16 +52,15 @@ public class RateLimiterLuaService {
 	    * @param key
 	    * @return Mono
 	    */
-	public Mono<RateLimiterResultDto> isAllowed(String key){
+	public Mono<RateLimiterResultDto> isAllowed(String redisKey){
 		long now=System.currentTimeMillis();
-    	String redisKey = RateLimiterKeyBuilder.buildKey(key);
     	log.info("now performing lua script with redis Key = {}",redisKey);
     	
     	return redisTemplate.execute(rateLimiterScript,
     			List.of(redisKey),
     			List.of(String.valueOf(now),
-    			String.valueOf(WINDOW_SIZE_MS),
-    			String.valueOf(MAX_REQUESTS)
+    			String.valueOf(properties.getWindowMs()),
+    			String.valueOf(properties.getMaxRequests())
     			)
     			).next().map(result->{
     				if (result==null ||result.size()<2) {
@@ -72,17 +71,17 @@ public class RateLimiterLuaService {
     				int remaining=((Long)result.get(1)).intValue();
     				if(allowed==1) {
     					allowedCounter.increment();
-    					log.info("Rate limit allowed | key={} | remaining={}", key, remaining);
+    					log.info("Rate limit allowed | key={} | remaining={}", redisKey, remaining);
     	                 return new RateLimiterResultDto(true, remaining);
     				}else {
     					blockedCounter.increment();
-    					log.warn("Rate limit exceeded | key={}", key);
+    					log.warn("Rate limit exceeded | key={}", redisKey);
     	                 return new RateLimiterResultDto(false, 0);
     				}
-    			}).onErrorResume(ex -> { // fail-open situation for redis allow all
+    			}).timeout(Duration.ofMillis(100)).onErrorResume(ex -> { // fail-open situation for redis allow all
     				fallbackCounter.increment();
     				log.error("Fallback metric incremented");
-    		        log.error("Redis unavailable, FAIL-OPEN mode | key={}", key, ex);
+    		        log.error("Redis unavailable, FAIL-OPEN mode | key={}", redisKey, ex);
     		        return Mono.just(new RateLimiterResultDto(true, -1));
     		    });
 

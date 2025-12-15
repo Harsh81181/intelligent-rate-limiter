@@ -26,9 +26,8 @@ public class RateLimiterService {
     * @param key
     * @return Mono
     */
-    public Mono<RateLimiterResultDto> isAllowed(String key) {
+    public Mono<RateLimiterResultDto> isAllowed(String redisKey) {
 
-    	String redisKey = RateLimiterKeyBuilder.buildKey(key);
         long now = System.currentTimeMillis();
         double windowStart = now - WINDOW_SIZE_MS;
 
@@ -46,7 +45,7 @@ public class RateLimiterService {
                     if (currentRequestCount >= MAX_REQUESTS) {
                     	log.warn(
                                 "Rate limit exceeded | key={} | count={} | limit={}",
-                                key, currentRequestCount, MAX_REQUESTS
+                                redisKey, currentRequestCount, MAX_REQUESTS
                             );
                         return Mono.just(
                                 new RateLimiterResultDto(false, 0)
@@ -55,7 +54,7 @@ public class RateLimiterService {
                     // ALLOW case
                     log.info(
                             "Rate limit allowed | key={} | count={} | limit={}",
-                            key, currentRequestCount, MAX_REQUESTS
+                            redisKey, currentRequestCount, MAX_REQUESTS
                         );
                     return allowRequest(redisKey, now, currentRequestCount);
                 });

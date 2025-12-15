@@ -6,11 +6,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.harsh.rate_limiter.service.RateLimiterLuaService;
+//import com.harsh.rate_limiter.service.RateLimiterLuaService;
 //import com.harsh.rate_limiter.service.RateLimiterService;
 
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Mono;
+//import reactor.core.publisher.Mono;
 
 @RestController
 @RequiredArgsConstructor
@@ -18,23 +18,12 @@ import reactor.core.publisher.Mono;
 public class RateLimitTestController {
 
     //private final RateLimiterService rateLimiterService;
-    private final RateLimiterLuaService rateLimiterService;
+    //private final RateLimiterLuaService rateLimiterService;
 
     @GetMapping("/test")
-    public Mono<ResponseEntity<String>> test(
-            @RequestHeader("X-API-KEY") String apiKey) {
+    public ResponseEntity<String> test() {
 
-        return rateLimiterService.isAllowed(apiKey)
-                .map(result -> {
-                    if (result.isAllowed()) {
-                        return ResponseEntity.ok(
-                                "Request allowed. Remaining: " + result.getRemaining()
-                        );
-                    } else {
-                        return ResponseEntity.status(429)
-                                .body("Rate limit exceeded");
-                    }
-                });
+    	return ResponseEntity.ok("Request successful");
     }
 }
 
