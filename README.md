@@ -1,258 +1,149 @@
-# 📌 **README.md – Intelligent Distributed Rate Limiter Platform**
+# Rate Limiter - Dockerized
 
-High-performance distributed rate limiting engine implementing Token Bucket and Sliding Window algorithms with Redis. Supports dynamic rule configuration, API key management, and real-time metrics. Designed for scalable microservices and fintech-grade reliability.
-
-# 🚀 Intelligent Distributed Rate Limiter Platform
-
-A high-performance **distributed rate limiting engine** built with **Spring Boot + Redis**, supporting **Token Bucket** and **Sliding Window** algorithms. Designed for scalable microservice architectures and fintech-grade reliability.
+This branch contains the **Dockerized version** of the Intelligent Rate Limiter project built with Spring Boot and Redis. It allows easy deployment using Docker and Docker Compose.
 
 ---
 
-## 🔥 Features
+## **Project Overview**
 
-* ⚡ **High-Throughput Distributed Rate Limiting**
-  Handles millions of requests using Redis atomic operations.
+The Rate Limiter service provides:
 
-* 🪣 **Multiple Algorithms**
-
-  * Token Bucket (burst-friendly)
-  * Sliding Window (fair throttling)
-
-* 🔑 **API Key–Based Rate Limits**
-  Per-client / per-endpoint configuration.
-
-* 🛠 **Dynamic Rule Management**
-  Update rate limits at runtime without restarting the service.
-
-* 📊 **Real-Time Metrics & Monitoring**
-  Track:
-
-  * allowed requests
-  * blocked requests
-  * token consumption
-  * request rate
-
-* 🧩 **Clean Microservice Architecture**
-  Modular service layers, Redis-backed state, admin module.
-
-* 🧪 **Unit-tested Core Algorithms**
-  Ensures correctness under concurrency.
+* **Fixed-window and sliding-window request limiting** using Redis.
+* **Fail-open mechanism** when Redis is unavailable.
+* **Config-driven design** for request limits, window size, and excluded paths.
+* **API-level enforcement** via a Spring Boot filter.
+* **Metrics tracking** using Spring Boot Actuator.
 
 ---
 
-## 🏗️ **System Architecture**
+## **Architecture Diagram**
 
 ```
-                      ┌──────────────────────────┐
-                      │      Client Services      │
-                      └──────────────┬───────────┘
-                                     │ /check
-                             (API Key + Permits)
-                                     │
-                        ┌────────────▼────────────┐
-                        │  Rate Limiter API Layer │
-                        └────────────┬────────────┘
-                                     │
-                                  invokes
-                                     │
-                        ┌────────────▼────────────┐
-                        │   Limiter Core Service   │
-                        │  (TokenBucket/Sliding)   │
-                        └────────────┬────────────┘
-                                     │
-                                uses Redis
-                                     │
-                ┌────────────────────▼─────────────────────┐
-                │       Redis (Atomic Operations)           │
-                │  - Counters      - Sorted Sets            │
-                │  - Token State   - TTL Windows            │
-                └──────────────────────────────────────────┘
+          ┌──────────────┐
+          │  Client/API  │
+          └──────┬───────┘
+                 │
+                 ▼
+          ┌──────────────┐
+          │ Spring Boot  │
+          │ RateLimiter  │
+          └──────┬───────┘
+                 │
+   ┌─────────────┴─────────────┐
+   │                           │
+   ▼                           ▼
+Redis (ZSET per key)     Actuator / Metrics
 ```
 
 ---
 
-## ⚙️ **Tech Stack**
+## **Getting Started**
 
-* **Java 21**
-* **Spring Boot 3**
-* **Spring Web MVC**
-* **Spring Data Redis (Lettuce)**
-* **Redis**
-* **Lombok**
-* **JUnit**
-* **Docker (optional)**
+### **Prerequisites**
+
+* Docker ≥ 20.x
+* Docker Compose ≥ 1.29.x
+* Optional: Java 21 (for local builds)
 
 ---
 
-# 📡 API Endpoints
+### **Clone the Repository**
 
-## **🔹 Check Request Limit**
-
-`POST /check`
-
-### Request:
-
-```json
-{
-  "apiKey": "user123",
-  "permits": 1
-}
-```
-
-### Response:
-
-```json
-{
-  "allowed": true,
-  "remaining": 42
-}
+```bash
+git clone -b main_docker https://github.com/<your-username>/rate_limiter.git
+cd rate_limiter
 ```
 
 ---
 
-## **🔹 Create/Update Rule**
+### **Environment Variables / Properties**
 
-`POST /admin/rules`
+`application.properties` / `docker-compose.yml` defines all configuration:
 
-### Sample Rule:
+```properties
+spring.application.name=rate_limiter
+spring.profiles.active=local
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.metrics.enabled=true
 
-```json
-{
-  "apiKey": "user123",
-  "limit": 100,
-  "windowInSeconds": 60,
-  "algorithm": "TOKEN_BUCKET",
-  "burstAllowed": true
-}
+rate-limiter.window-ms=10000
+rate-limiter.max-requests=3
+rate-limiter.excluded-paths=/actuator,/swagger,/v3/api-docs,/health
+
+spring.data.redis.timeout=100ms
+spring.data.redis.connect-timeout=100ms
+spring.data.redis.host=redis
+spring.data.redis.port=6397
 ```
 
 ---
 
-## **🔹 Get Rule**
+### **Docker Setup**
 
-`GET /admin/rules/{apiKey}`
+#### **docker-compose.yml**
 
----
+The service includes:
 
-## **🔹 Metrics**
+* **Redis container** with persistence enabled
+* **Spring Boot app container** connected to Redis
 
-`GET /admin/metrics/{apiKey}`
+#### **Build and Run**
 
----
+```bash
+# Build images
+docker-compose build
 
-# 🧠 Algorithms Overview
-
-## **1️⃣ Token Bucket**
-
-* Allows bursts
-* Tokens refill over time
-* Checking a request is O(1)
-
-## **2️⃣ Sliding Window (Sorted Set or Counter-based)**
-
-* Smooth rate limiting
-* Fair distribution
-* Good for fintech & payments
-
----
-
-# 🚀 **Running the Project**
-
-### **1. Clone the repository**
-
-```sh
-git clone https://github.com/<your-username>/intelligent-rate-limiter.git
-cd intelligent-rate-limiter
+# Start containers in detached mode
+docker-compose up -d
 ```
 
-### **2. Start Redis**
+Check logs:
 
-**Option A: Using Docker**
-
-```sh
-docker run -p 6379:6379 redis
+```bash
+docker-compose logs -f rate-limiter
 ```
 
-**Option B: Local installation**
-Start Redis server normally.
+#### **Stop containers**
 
-### **3. Run the application**
-
-```sh
-mvn spring-boot:run
+```bash
+docker-compose down
 ```
 
 ---
 
-# 🧪 Testing
+### **Access the Service**
 
-Run all tests:
+* API endpoints: `http://localhost:8080/test`
+* Actuator metrics: `http://localhost:8080/actuator/metrics`
+* Redis health: verified via container network (`docker exec -it rate-limiter-redis redis-cli ping`)
 
-```sh
-mvn test
+---
+
+### **DockerHub Image (Optional)**
+
+```bash
+docker pull harsh052/rate-limiter:1.0
+docker run -p 8080:8080  harsh052/rate-limiter:1.0
 ```
 
 ---
 
-# 🧱 Project Structure
+### **Features**
 
-```
-src/
- ├── main/java/com.harsh.ratelimiter
- │     ├── controller
- │     ├── service
- │     ├── model
- │     ├── repository
- │     └── config
- ├── test/java/com.harsh.ratelimiter
-docs/
- └── daily-progress/
-        ├── day1.md
-        ├── day2.md
-        └── ...
-```
+| Feature             | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| Rate Limiting       | Sliding window with Redis ZSET                        |
+| Fail-Open Mechanism | Requests allowed if Redis unavailable                 |
+| Config-Driven       | `application.properties` and env variables            |
+| Metrics             | Exposed via `/actuator/metrics`                       |
+| Path Exclusions     | Configure excluded paths like `/swagger`, `/actuator` |
 
 ---
 
-# 📝 Daily Progress Logs
+### **Notes**
 
-Daily progress is maintained at:
-`/docs/daily-progress/dayX.md`
-
----
-
-# 📈 Roadmap
-
-* [ ] Add Circuit Breaker (Resilience4j)
-* [ ] Add Kafka-based rule propagation
-* [ ] Add Redis Cluster support
-* [ ] Add Multi-tenancy
-* [ ] Build UI Admin Dashboard
-* [ ] Deploy on AWS ECS + Elasticache
+* Ensure Docker containers are on the same network (handled automatically via Docker Compose).
+* Health checks ensure the Spring Boot app waits for Redis to be ready.
+* Fail-open logic ensures API requests are not blocked if Redis is down.
 
 ---
-
-# 🤝 Contributing
-
-PRs are welcome!
-Fork the repo, create a branch, and submit a pull request.
-
----
-
-# 📄 License
-
-MIT License.
-
----
-
-# 💬 Contact
-
-For questions or collaboration:
-**Harsh Bhardwaj**
-GitHub: *Harsh81181*
-
-✅ Architecture Diagram (PNG using ASCII)
-✅ API Swagger Documentation
-✅ Day 1 log file (`docs/daily-progress/day1.md`)
-
-Just tell me **“Generate day1.md”** or **“Generate architecture diagram image”**.
