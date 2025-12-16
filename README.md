@@ -1,258 +1,238 @@
-# 📌 **README.md – Intelligent Distributed Rate Limiter Platform**
+# Intelligent Rate Limiter Platform
 
-High-performance distributed rate limiting engine implementing Token Bucket and Sliding Window algorithms with Redis. Supports dynamic rule configuration, API key management, and real-time metrics. Designed for scalable microservices and fintech-grade reliability.
+## Overview
 
-# 🚀 Intelligent Distributed Rate Limiter Platform
+This project is a production-grade, Redis-backed intelligent rate limiter implemented using Spring Boot. It enforces request throttling at the application edge using a sliding window algorithm executed atomically via Redis Lua scripts. The system is designed to be configurable, resilient, observable, and suitable for real-world backend systems.
 
-A high-performance **distributed rate limiting engine** built with **Spring Boot + Redis**, supporting **Token Bucket** and **Sliding Window** algorithms. Designed for scalable microservice architectures and fintech-grade reliability.
-
----
-
-## 🔥 Features
-
-* ⚡ **High-Throughput Distributed Rate Limiting**
-  Handles millions of requests using Redis atomic operations.
-
-* 🪣 **Multiple Algorithms**
-
-  * Token Bucket (burst-friendly)
-  * Sliding Window (fair throttling)
-
-* 🔑 **API Key–Based Rate Limits**
-  Per-client / per-endpoint configuration.
-
-* 🛠 **Dynamic Rule Management**
-  Update rate limits at runtime without restarting the service.
-
-* 📊 **Real-Time Metrics & Monitoring**
-  Track:
-
-  * allowed requests
-  * blocked requests
-  * token consumption
-  * request rate
-
-* 🧩 **Clean Microservice Architecture**
-  Modular service layers, Redis-backed state, admin module.
-
-* 🧪 **Unit-tested Core Algorithms**
-  Ensures correctness under concurrency.
+The rate limiter operates at the filter level, ensuring that requests are evaluated before reaching any business logic. It supports multiple key strategies (API key, user identifier, and IP address), exposes rate-limit metadata via HTTP headers, and follows a fail-open strategy to prioritize availability during Redis outages.
 
 ---
 
-## 🏗️ **System Architecture**
+## Key Features
+
+* Sliding window rate limiting using timestamps
+* Atomic decision-making via Redis Lua scripts
+* Servlet filter-based enforcement
+* Multiple rate-limit key strategies
+* Config-driven limits and exclusions
+* Fail-open behavior on Redis failure
+* Bounded execution with timeouts
+* HTTP response headers for client awareness
+* Metrics and observability via Spring Actuator
+
+---
+
+## High-Level Architecture
 
 ```
-                      ┌──────────────────────────┐
-                      │      Client Services      │
-                      └──────────────┬───────────┘
-                                     │ /check
-                             (API Key + Permits)
-                                     │
-                        ┌────────────▼────────────┐
-                        │  Rate Limiter API Layer │
-                        └────────────┬────────────┘
-                                     │
-                                  invokes
-                                     │
-                        ┌────────────▼────────────┐
-                        │   Limiter Core Service   │
-                        │  (TokenBucket/Sliding)   │
-                        └────────────┬────────────┘
-                                     │
-                                uses Redis
-                                     │
-                ┌────────────────────▼─────────────────────┐
-                │       Redis (Atomic Operations)           │
-                │  - Counters      - Sorted Sets            │
-                │  - Token State   - TTL Windows            │
-                └──────────────────────────────────────────┘
+Client
+  |
+  v
+RateLimiterFilter
+  |
+  v
+Redis Lua Script (Atomic Sliding Window)
+  |
+  v
+Controller (Only if request is allowed)
 ```
 
 ---
 
-## ⚙️ **Tech Stack**
+## Request Flow
 
-* **Java 21**
-* **Spring Boot 3**
-* **Spring Web MVC**
-* **Spring Data Redis (Lettuce)**
-* **Redis**
-* **Lombok**
-* **JUnit**
-* **Docker (optional)**
+1. An incoming HTTP request reaches the application.
+2. The request is intercepted by `RateLimiterFilter` before controller execution.
+3. A rate-limit key is resolved using the following priority:
+
+   * X-API-KEY header
+   * Authenticated user identifier (if present)
+   * Client IP address
+4. The resolved key is transformed into an environment-aware Redis key.
+5. A Redis Lua script executes atomically to:
+
+   * Remove expired request entries
+   * Count requests in the active window
+   * Decide whether the request is allowed
+   * Insert the current request if allowed
+   * Set TTL for automatic cleanup
+6. Based on the result:
+
+   * Allowed requests proceed through the filter chain
+   * Blocked requests return HTTP 429 without invoking controllers
+7. Rate-limit metadata is added to HTTP response headers.
+8. Metrics and logs are emitted for observability.
 
 ---
 
-# 📡 API Endpoints
+## Rate Limiting Algorithm
 
-## **🔹 Check Request Limit**
+### Sliding Window Strategy
 
-`POST /check`
+* Each request timestamp is stored in a Redis sorted set (ZSET).
+* The score and value of each entry represent the request timestamp.
+* Before counting, expired timestamps outside the window are removed.
+* The current count is compared against the configured limit.
 
-### Request:
+This approach avoids burst anomalies seen in fixed window algorithms and provides accurate enforcement under concurrent traffic.
 
-```json
-{
-  "apiKey": "user123",
-  "permits": 1
-}
+---
+
+## Redis Data Structure
+
+* Redis Sorted Set (ZSET)
+* Key format:
+
+  ```
+  <environment>:rate-limiter:<key-type>:<identifier>
+  ```
+
+Example:
+
 ```
-
-### Response:
-
-```json
-{
-  "allowed": true,
-  "remaining": 42
-}
-```
-
----
-
-## **🔹 Create/Update Rule**
-
-`POST /admin/rules`
-
-### Sample Rule:
-
-```json
-{
-  "apiKey": "user123",
-  "limit": 100,
-  "windowInSeconds": 60,
-  "algorithm": "TOKEN_BUCKET",
-  "burstAllowed": true
-}
-```
-
----
-
-## **🔹 Get Rule**
-
-`GET /admin/rules/{apiKey}`
-
----
-
-## **🔹 Metrics**
-
-`GET /admin/metrics/{apiKey}`
-
----
-
-# 🧠 Algorithms Overview
-
-## **1️⃣ Token Bucket**
-
-* Allows bursts
-* Tokens refill over time
-* Checking a request is O(1)
-
-## **2️⃣ Sliding Window (Sorted Set or Counter-based)**
-
-* Smooth rate limiting
-* Fair distribution
-* Good for fintech & payments
-
----
-
-# 🚀 **Running the Project**
-
-### **1. Clone the repository**
-
-```sh
-git clone https://github.com/<your-username>/intelligent-rate-limiter.git
-cd intelligent-rate-limiter
-```
-
-### **2. Start Redis**
-
-**Option A: Using Docker**
-
-```sh
-docker run -p 6379:6379 redis
-```
-
-**Option B: Local installation**
-Start Redis server normally.
-
-### **3. Run the application**
-
-```sh
-mvn spring-boot:run
+local:rate-limiter:api-key:abc123
 ```
 
 ---
 
-# 🧪 Testing
+## Lua Script (Atomic Enforcement)
 
-Run all tests:
+All rate limiting logic is executed inside Redis using Lua scripting. This ensures:
 
-```sh
-mvn test
+* Atomic execution
+* No race conditions
+* Single network round-trip
+* Correct behavior under high concurrency
+
+The script performs cleanup, counting, decision-making, insertion, and TTL handling in one atomic operation.
+
+---
+
+## Failure Handling and Resilience
+
+### Redis Unavailable at Startup
+
+* Application starts successfully
+* Rate limiting is bypassed
+* Requests are allowed
+
+### Redis Unavailable During Runtime
+
+* Lua execution is bounded with a strict timeout
+* Errors trigger fail-open fallback
+* Requests are allowed without blocking
+* Fallback metrics are incremented
+
+### Design Rationale
+
+The system follows an availability-first (fail-open) strategy to prevent cascading failures and ensure business continuity.
+
+---
+
+## Configuration
+
+All behavior is externalized via configuration properties.
+
+### Application Properties
+
+```properties
+spring.application.name=rate_limiter
+spring.profiles.active=local
+
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.metrics.enabled=true
+
+rate-limiter.window-ms=10000
+rate-limiter.max-requests=3
+rate-limiter.excluded-paths=/actuator,/swagger,/v3/api-docs,/health
+
+spring.data.redis.timeout=100ms
+spring.data.redis.connect-timeout=100ms
 ```
 
 ---
 
-# 🧱 Project Structure
+## Configuration Reference Table
+
+| Property                          | Description                             | Default                                 |
+| --------------------------------- | --------------------------------------- | --------------------------------------- |
+| rate-limiter.window-ms            | Sliding window duration in milliseconds | 10000                                   |
+| rate-limiter.max-requests         | Maximum allowed requests per window     | 3                                       |
+| rate-limiter.excluded-paths       | Paths excluded from rate limiting       | /actuator,/swagger,/v3/api-docs,/health |
+| spring.data.redis.timeout         | Redis command timeout                   | 100ms                                   |
+| spring.data.redis.connect-timeout | Redis connection timeout                | 100ms                                   |
+
+---
+
+## HTTP Response Headers
+
+The rate limiter adds standard headers to responses:
+
+* X-Rate-Limiter-Limit
+* X-Rate-Limiter-Remaining
+* X-Rate-Limiter-Reset
+
+These headers allow clients to implement retry and backoff strategies.
+
+---
+
+## Metrics and Observability
+
+The system exposes metrics via Spring Actuator:
+
+* rate_limiter.allowed
+* rate_limiter.blocked
+* rate_limiter.fallback
+
+Metrics are accessible at:
 
 ```
-src/
- ├── main/java/com.harsh.ratelimiter
- │     ├── controller
- │     ├── service
- │     ├── model
- │     ├── repository
- │     └── config
- ├── test/java/com.harsh.ratelimiter
-docs/
- └── daily-progress/
-        ├── day1.md
-        ├── day2.md
-        └── ...
+/actuator/metrics
 ```
 
----
-
-# 📝 Daily Progress Logs
-
-Daily progress is maintained at:
-`/docs/daily-progress/dayX.md`
+Logs provide structured insight into allow, block, and fallback decisions.
 
 ---
 
-# 📈 Roadmap
+## Validation and Testing
 
-* [ ] Add Circuit Breaker (Resilience4j)
-* [ ] Add Kafka-based rule propagation
-* [ ] Add Redis Cluster support
-* [ ] Add Multi-tenancy
-* [ ] Build UI Admin Dashboard
-* [ ] Deploy on AWS ECS + Elasticache
+The following scenarios have been validated:
+
+* Burst traffic exceeding the configured limit
+* Window expiration and automatic recovery
+* Redis latency and timeout handling
+* Redis outage with fail-open behavior
+
+These tests confirm correctness, resilience, and bounded response times.
 
 ---
 
-# 🤝 Contributing
+## Future Improvements
+
+* Per-endpoint rate limits
+* Token bucket or leaky bucket algorithms
+* Redis cluster support
+* Circuit breakers around Redis
+* WebFlux-native non-blocking filter
+
+---
+## Contributing
 
 PRs are welcome!
 Fork the repo, create a branch, and submit a pull request.
-
 ---
-
-# 📄 License
+## License
 
 MIT License.
-
 ---
 
-# 💬 Contact
+## Contact
 
 For questions or collaboration:
-**Harsh Bhardwaj**
-GitHub: *Harsh81181*
+Harsh Bhardwaj
+GitHub : Harsh81181
+---
 
-✅ Architecture Diagram (PNG using ASCII)
-✅ API Swagger Documentation
-✅ Day 1 log file (`docs/daily-progress/day1.md`)
+## Summary
 
-Just tell me **“Generate day1.md”** or **“Generate architecture diagram image”**.
+This project demonstrates a production-ready approach to rate limiting with strong emphasis on correctness, concurrency safety, resilience, and observability. It is designed to scale horizontally and operate safely under real-world failure conditions.
