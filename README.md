@@ -216,14 +216,11 @@ These tests confirm correctness, resilience, and bounded response times.
 * WebFlux-native non-blocking filter
 
 ---
-## Contributing
 
-PRs are welcome!
-Fork the repo, create a branch, and submit a pull request.
----
 ## License
 
 MIT License.
+
 ---
 
 ## Contact
@@ -231,6 +228,8 @@ MIT License.
 For questions or collaboration:
 Harsh Bhardwaj
 GitHub : Harsh81181
+
+
 ---
 
 ## Summary
