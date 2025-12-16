@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: rate-limiter-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rate-limiter:
+    build: .
+    container_name: rate-limiter-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_APPLICATION_NAME: rate_limiter
+      SPRING_PROFILES_ACTIVE: local
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_TIMEOUT: 100ms
+      SPRING_DATA_REDIS_CONNECT_TIMEOUT: 100ms
+
+      RATE_LIMITER_WINDOW_MS: 10000
+      RATE_LIMITER_MAX_REQUESTS: 3
+      RATE_LIMITER_EXCLUDED_PATHS: /actuator,/swagger,/v3/api-docs,/health
