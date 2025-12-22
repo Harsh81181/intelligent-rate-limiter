@@ -1,8 +1,8 @@
-# Intelligent Rate Limiter Platform
+# Fault Tolerant Rate Limiter Platform
 
 ## Overview
 
-This project is a production-grade, Redis-backed intelligent rate limiter implemented using Spring Boot. It enforces request throttling at the application edge using a sliding window algorithm executed atomically via Redis Lua scripts. The system is designed to be configurable, resilient, observable, and suitable for real-world backend systems.
+This project is a production-grade, Redis-backed Fault tolerant rate limiter implemented using Spring Boot. It enforces request throttling at the application edge using a sliding window algorithm executed atomically via Redis Lua scripts. The system is designed to be configurable, resilient, observable, and suitable for real-world backend systems.
 
 The rate limiter operates at the filter level, ensuring that requests are evaluated before reaching any business logic. It supports multiple key strategies (API key, user identifier, and IP address), exposes rate-limit metadata via HTTP headers, and follows a fail-open strategy to prioritize availability during Redis outages.
 
