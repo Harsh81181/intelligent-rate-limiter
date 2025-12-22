@@ -1,6 +1,6 @@
-# Intelligent Rate Limiter Platform (Dockerized)
+# Fault Tolerant Rate Limiter Platform (Dockerized)
 
-A **production-grade, Redis-backed intelligent rate limiter** built using **Spring Boot** and designed for **correctness, resilience, observability, and real-world scalability**.
+A **production-grade, Redis-backed Fault Tolerant Rate Limiter** built using **Spring Boot** and designed for **correctness, resilience, observability, and real-world scalability**.
 This repository includes a **fully Dockerized setup** using Docker and Docker Compose for easy deployment.
 
 ---
@@ -186,7 +186,7 @@ spring.data.redis.connect-timeout=100ms
 ### Clone the Repository
 
 ```bash
-git clone -b main_docker https://github.com/Harsh81181/rate_limiter.git
+git clone -b main_docker https://github.com/Harsh81181/Fault-Tolerant-Rate-Limiter.git
 cd rate_limiter
 ```
 
